@@ -42,11 +42,17 @@ export class HeatmapService {
     const conditions: SQL[] = [eq(reports.moderationStatus, "visible"), gte(reports.occurredOn, startDate(query.window, this.config.SEASON_START_MONTH))];
     if (query.placeType) conditions.push(eq(reports.placeType, query.placeType));
     if (query.subjectType) conditions.push(eq(reports.subjectType, query.subjectType));
+    // Per-country totals under the same filters (but never the bbox — the
+    // country badges are a world-level view). National aggregates carry no
+    // location-privacy risk, so no per-cell threshold applies.
+    const countries = (await this.db.select({ country: reports.countryCode, count: sql<number>`count(*)::int` })
+      .from(reports).where(and(...conditions)).groupBy(reports.countryCode))
+      .filter((r): r is { country: string; count: number } => r.country !== null);
     if (query.north !== undefined && query.south !== undefined && query.east !== undefined && query.west !== undefined) {
       const polygon = [[query.south, query.west], [query.south, query.east], [query.north, query.east], [query.north, query.west], [query.south, query.west]];
       const cells = polygonToCells(polygon, this.config.H3_RESOLUTION);
       if (cells.length > 50_000) throw new PublicError(400, "area_too_large", "Geographic area is too large");
-      if (cells.length === 0) return this.response(query, [], minimumCellCount, resolution, 0);
+      if (cells.length === 0) return this.response(query, [], minimumCellCount, resolution, 0, countries);
       conditions.push(inArray(reports.h3Cell, cells));
     }
 
@@ -75,7 +81,7 @@ export class HeatmapService {
     const cells = counted
       .filter(({ count }) => count >= minimumCellCount)
       .map(({ cell, count }) => ({ cell, countBucket: Math.max(minimumCellCount, Math.floor(count / 5) * 5), intensity: count < 15 ? "low" : count < 40 ? "medium" : "high" }));
-    return this.response(query, cells, minimumCellCount, resolution, matchingReports);
+    return this.response(query, cells, minimumCellCount, resolution, matchingReports, countries);
   }
 
   /**
@@ -91,8 +97,8 @@ export class HeatmapService {
     return { totalReports: row?.total ?? 0, reportsLast24h: row?.last24h ?? 0 };
   }
 
-  private async response(query: HeatmapQuery, cells: Array<{ cell: string; countBucket: number; intensity: string }>, minimumCellCount = this.config.PUBLIC_MIN_CELL_COUNT, resolution = this.config.H3_RESOLUTION, matchingReports = 0) {
+  private async response(query: HeatmapQuery, cells: Array<{ cell: string; countBucket: number; intensity: string }>, minimumCellCount = this.config.PUBLIC_MIN_CELL_COUNT, resolution = this.config.H3_RESOLUTION, matchingReports = 0, countries: Array<{ country: string; count: number }> = []) {
     const totals = await this.totals();
-    return { generatedAt: new Date().toISOString(), window: query.window, resolution, minimumCellCount, matchingReports, ...totals, cells };
+    return { generatedAt: new Date().toISOString(), window: query.window, resolution, minimumCellCount, matchingReports, ...totals, countries, cells };
   }
 }

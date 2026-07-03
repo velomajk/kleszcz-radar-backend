@@ -32,6 +32,9 @@ export const reports = pgTable("reports", {
   id: uuid("id").defaultRandom().primaryKey(),
   occurredOn: date("occurred_on", { mode: "string" }).notNull(),
   h3Cell: text("h3_cell").notNull(),
+  // ISO 3166-1 alpha-2, derived offline from the H3 cell centre at confirm
+  // time. Nullable: rows created before this column existed have no value.
+  countryCode: text("country_code"),
   placeType: placeType("place_type").notNull(),
   subjectType: subjectType("subject_type").notNull(),
   tickRemoved: boolean("tick_removed").notNull(),
