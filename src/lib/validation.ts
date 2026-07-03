@@ -38,6 +38,11 @@ export const heatmapQuerySchema = z.object({
   window: z.enum(["7d", "14d", "30d", "season"]).default("30d"),
   placeType: z.enum(["forest", "meadow", "park", "garden", "allotment", "urban", "other"]).optional(),
   subjectType: z.enum(["adult", "child", "animal"]).optional(),
+  // Requested aggregation resolution. Coarser (lower) values let wide map
+  // views accumulate enough reports per cell to clear the privacy threshold.
+  // The service clamps this to [COARSEST_RESOLUTION, H3_RESOLUTION], so
+  // clients can never request finer-grained data than is stored.
+  resolution: z.coerce.number().int().min(0).max(15).optional(),
   north: z.coerce.number().min(-90).max(90).optional(),
   south: z.coerce.number().min(-90).max(90).optional(),
   east: z.coerce.number().min(-180).max(180).optional(),
