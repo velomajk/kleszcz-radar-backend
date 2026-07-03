@@ -74,7 +74,21 @@ export class HeatmapService {
     return this.response(query, cells, minimumCellCount, resolution);
   }
 
-  private response(query: HeatmapQuery, cells: Array<{ cell: string; countBucket: number; intensity: string }>, minimumCellCount = this.config.PUBLIC_MIN_CELL_COUNT, resolution = this.config.H3_RESOLUTION) {
-    return { generatedAt: new Date().toISOString(), window: query.window, resolution, minimumCellCount, cells };
+  /**
+   * Country-wide counters shown in the map footer. Unfiltered on purpose:
+   * they communicate overall app activity, not the current map view, and a
+   * single national aggregate carries no location-privacy risk.
+   */
+  private async totals() {
+    const [row] = await this.db.select({
+      total: sql<number>`count(*)::int`,
+      last24h: sql<number>`(count(*) filter (where ${reports.createdAt} >= now() - interval '24 hours'))::int`,
+    }).from(reports).where(eq(reports.moderationStatus, "visible"));
+    return { totalReports: row?.total ?? 0, reportsLast24h: row?.last24h ?? 0 };
+  }
+
+  private async response(query: HeatmapQuery, cells: Array<{ cell: string; countBucket: number; intensity: string }>, minimumCellCount = this.config.PUBLIC_MIN_CELL_COUNT, resolution = this.config.H3_RESOLUTION) {
+    const totals = await this.totals();
+    return { generatedAt: new Date().toISOString(), window: query.window, resolution, minimumCellCount, ...totals, cells };
   }
 }
