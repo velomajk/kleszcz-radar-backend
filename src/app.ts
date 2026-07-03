@@ -24,7 +24,10 @@ export const buildApp = async (config: Config) => {
   const database = createDatabase(config);
   const limiter = new SlidingLimiter(config);
   await app.register(helmet, { contentSecurityPolicy: false });
-  await app.register(cors, { origin: config.CORS_ORIGINS.split(",").filter(Boolean), methods: ["GET", "POST", "PUT", "PATCH"] });
+  // Trim entries and strip trailing slashes so values like
+  // "https://a.example, https://b.example/" still match browser Origins.
+  const corsOrigins = config.CORS_ORIGINS.split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean);
+  await app.register(cors, { origin: corsOrigins, methods: ["GET", "POST", "PUT", "PATCH"] });
   await app.register(rateLimit, { max: 200, timeWindow: "1 minute" });
 
   const reportService = new ReportService(database.db, config, createEmailSender(config), limiter);
