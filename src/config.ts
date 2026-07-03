@@ -7,7 +7,9 @@ export const configSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
-  PUBLIC_APP_URL: z.string().url(),
+  // Trailing slashes are stripped so `${PUBLIC_APP_URL}/path` can never
+  // produce a double slash (which breaks the frontend's client-side routing).
+  PUBLIC_APP_URL: z.string().url().transform((v) => v.replace(/\/+$/, "")),
   API_BASE_URL: z.string().url(),
   CORS_ORIGINS: z.string().default(""),
   EMAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
