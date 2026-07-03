@@ -35,6 +35,9 @@ export const reports = pgTable("reports", {
   // ISO 3166-1 alpha-2, derived offline from the H3 cell centre at confirm
   // time. Nullable: rows created before this column existed have no value.
   countryCode: text("country_code"),
+  // Voivodeship name (lowercase), only for PL reports; derived like the
+  // country from the cell centre. Nullable for old/foreign reports.
+  region: text("region"),
   placeType: placeType("place_type").notNull(),
   subjectType: subjectType("subject_type").notNull(),
   tickRemoved: boolean("tick_removed").notNull(),

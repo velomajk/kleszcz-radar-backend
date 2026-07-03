@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { cellToLatLng, latLngToCell } from "h3-js";
 import { iso1A2Code } from "@rapideditor/country-coder";
+import { pointToRegion } from "../lib/regions.js";
 import type { Config } from "../config.js";
 import type { Database } from "../db/client.js";
 import { abuseEvents, reports, symptomAccessTokens, verificationRequests, type ReportDraft } from "../db/schema.js";
@@ -88,8 +89,9 @@ export class ReportService {
       // borders or open sea.
       const [cellLat, cellLng] = cellToLatLng(d.h3Cell);
       const countryCode = iso1A2Code([cellLng, cellLat]) ?? null;
+      const region = countryCode === "PL" ? pointToRegion(cellLat, cellLng) : null;
       const [report] = await tx.insert(reports).values({
-        occurredOn: d.occurredOn, h3Cell: d.h3Cell, countryCode, placeType: d.placeType, subjectType: d.subjectType,
+        occurredOn: d.occurredOn, h3Cell: d.h3Cell, countryCode, region, placeType: d.placeType, subjectType: d.subjectType,
         tickRemoved: d.tickRemoved, removalMethod: d.removalMethod, estimatedAttachmentHours: d.estimatedAttachmentHours,
         suspiciousScore: score, moderationStatus: score >= 35 ? "review" : "visible", duplicateOfId: duplicate?.id,
       }).returning({ id: reports.id });
